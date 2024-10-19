@@ -1,0 +1,37 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="4" author="dev">
+        <createTable tableName="service">
+            <column name="ID" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="text"/>
+            <column name="category_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="establishment_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="service"
+                                 baseColumnNames="establishment_id"
+                                 constraintName="fk_service_establishment"
+                                 referencedTableName="establishment"
+                                 referencedColumnNames="ID"/>
+
+        <addForeignKeyConstraint baseTableName="service"
+                                 baseColumnNames="category_id"
+                                 constraintName="fk_service_category"
+                                 referencedTableName="category"
+                                 referencedColumnNames="ID"/>
+    </changeSet>
+
+</databaseChangeLog>

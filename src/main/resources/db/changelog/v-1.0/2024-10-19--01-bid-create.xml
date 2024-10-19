@@ -1,0 +1,45 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="5" author="author">
+        <createTable tableName="bid">
+            <column name="ID" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="citizen_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="service_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="bid"
+                                 baseColumnNames="citizen_id"
+                                 constraintName="fk_bid_citizen"
+                                 referencedTableName="citizen"
+                                 referencedColumnNames="ID"/>
+
+        <addForeignKeyConstraint baseTableName="bid"
+                                 baseColumnNames="service_id"
+                                 constraintName="fk_bid_service"
+                                 referencedTableName="service"
+                                 referencedColumnNames="ID"/>
+
+        <addForeignKeyConstraint baseTableName="bid"
+                                 baseColumnNames="status_id"
+                                 constraintName="fk_bid_status"
+                                 referencedTableName="bid_status"
+                                 referencedColumnNames="ID"/>
+    </changeSet>
+
+</databaseChangeLog>

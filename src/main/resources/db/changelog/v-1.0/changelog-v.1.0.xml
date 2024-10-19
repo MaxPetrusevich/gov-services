@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.6.xsd">
+
+    <include file="2024-10-19--01-bid-status-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-role-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-category-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-type-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-establishment-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-payment-status-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-citizen-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-user-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-service-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-bid-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-payment-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-document-create.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>

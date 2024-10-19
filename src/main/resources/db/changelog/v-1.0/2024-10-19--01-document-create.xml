@@ -1,0 +1,35 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="7" author="dev">
+        <createTable tableName="document">
+            <column name="ID" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="link" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="loading_date" type="date"/>
+            <column name="bid_id" type="int"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="document"
+                                 baseColumnNames="bid_id"
+                                 constraintName="fk_document_bid"
+                                 referencedTableName="bid"
+                                 referencedColumnNames="ID"/>
+
+        <addForeignKeyConstraint baseTableName="document"
+                                 baseColumnNames="type_id"
+                                 constraintName="fk_document_type"
+                                 referencedTableName="type"
+                                 referencedColumnNames="ID"/>
+    </changeSet>
+
+</databaseChangeLog>

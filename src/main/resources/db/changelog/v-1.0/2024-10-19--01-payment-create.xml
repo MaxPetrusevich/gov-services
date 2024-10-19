@@ -1,0 +1,39 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="6" author="author">
+        <createTable tableName="payment">
+            <column name="ID" type="int" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="bid_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sum" type="decimal(10,2)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status_id" type="int">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="payment"
+                                 baseColumnNames="bid_id"
+                                 constraintName="fk_payment_bid"
+                                 referencedTableName="bid"
+                                 referencedColumnNames="ID"/>
+
+        <addForeignKeyConstraint baseTableName="payment"
+                                 baseColumnNames="status_id"
+                                 constraintName="fk_payment_status"
+                                 referencedTableName="payment_status"
+                                 referencedColumnNames="ID"/>
+    </changeSet>
+
+</databaseChangeLog>

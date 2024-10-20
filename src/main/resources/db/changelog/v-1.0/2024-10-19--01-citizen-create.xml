@@ -24,7 +24,13 @@
             <column name="passport_series" type="varchar(10)"/>
             <column name="passport_number" type="varchar(10)"/>
             <column name="address" type="varchar(255)"/>
+            <column name="user_id" type="int"/>
         </createTable>
+        <addForeignKeyConstraint baseTableName="citizen"
+                                 baseColumnNames="user_id"
+                                 constraintName="fk_user_citizen"
+                                 referencedTableName="app_user"
+                                 referencedColumnNames="id"/>
     </changeSet>
 
 </databaseChangeLog>

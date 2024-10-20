@@ -5,7 +5,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
 
     <changeSet id="2" author="dev">
-        <createTable tableName="user">
+        <createTable tableName="app_user">
             <column name="ID" type="int" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
             </column>
@@ -20,16 +20,12 @@
             </column>
         </createTable>
 
-        <addForeignKeyConstraint baseTableName="user"
+        <addForeignKeyConstraint baseTableName="app_user"
                                  baseColumnNames="role_id"
                                  constraintName="fk_user_role"
                                  referencedTableName="role"
                                  referencedColumnNames="ID"/>
-        <addForeignKeyConstraint baseTableName="user"
-                                 baseColumnNames="ID"
-                                 constraintName="fk_user_citizen"
-                                 referencedTableName="citizen"
-                                 referencedColumnNames="ID"/>
+
     </changeSet>
 
 </databaseChangeLog>

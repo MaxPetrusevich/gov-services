@@ -6,12 +6,12 @@
 
     <include file="2024-10-19--01-bid-status-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-role-create.xml" relativeToChangelogFile="true"/>
+    <include file="2024-10-19--01-user-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-category-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-type-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-establishment-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-payment-status-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-citizen-create.xml" relativeToChangelogFile="true"/>
-    <include file="2024-10-19--01-user-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-service-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-bid-create.xml" relativeToChangelogFile="true"/>
     <include file="2024-10-19--01-payment-create.xml" relativeToChangelogFile="true"/>

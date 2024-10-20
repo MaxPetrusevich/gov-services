@@ -1,23 +1,21 @@
 package by.course.govservices.entities
 
-import jakarta.persistence.*
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.relational.core.mapping.Table
 
-@Entity
 @Table(name = "service")
 data class Service(
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Int? = null,
 
-    @Column(name = "name", nullable = false)
+    @Column("name")
     val name: String,
 
-    @Column(name = "description", nullable = false)
+    @Column("description")
     val description: String,
 
-    @Column(name = "category", nullable = false)
+    @Column("category")
     val category: String
-) {
-    constructor() : this(null, "", "", "")
-}
+)

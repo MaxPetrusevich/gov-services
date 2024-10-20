@@ -1,27 +1,44 @@
 package by.course.govservices.entities
 
-import jakarta.persistence.*
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.relational.core.mapping.Table
 import java.time.LocalDate
 
-@Entity
 @Table(name = "citizen")
 data class Citizen(
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Int? = null,
 
-    @Column(name = "first_name", nullable = false)
+    @Column("first_name")
     val firstName: String,
 
-    @Column(name = "last_name", nullable = false)
+    @Column("last_name")
     val lastName: String,
 
-    @Column(name = "date_of_birth", nullable = false)
-    val dateOfBirth: LocalDate,
+    @Column("middle_name")
+    val middleName: String? = null, // Поле может быть null
 
-    @Column(name = "address", nullable = false)
-    val address: String
-) {
-    constructor() : this(null, "", "", LocalDate.now(), "")
-}
+    @Column("phone")
+    val phone: String? = null, // Поле может быть null
+
+    @Column("email")
+    val email: String? = null, // Поле может быть null
+
+    @Column("identify_number")
+    val identifyNumber: String, // Обязательно к заполнению
+
+    @Column("passport_series")
+    val passportSeries: String? = null, // Поле может быть null
+
+    @Column("passport_number")
+    val passportNumber: String? = null, // Поле может быть null
+
+    @Column("address")
+    val address: String, // Обязательно к заполнению
+
+    @Column("user_id")
+    val userId: Int
+
+)

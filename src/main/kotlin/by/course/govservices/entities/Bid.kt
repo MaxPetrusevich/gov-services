@@ -1,28 +1,20 @@
 package by.course.govservices.entities
 
-import jakarta.persistence.*
+import org.springframework.data.annotation.Id
+import org.springframework.data.relational.core.mapping.Column
+import org.springframework.data.relational.core.mapping.Table
 import java.time.LocalDate
 
-@Entity
 @Table(name = "bid")
 data class Bid(
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Int? = null,
-
-    @Column(name = "citizen_id", nullable = false)
+    @Column("citizen_id")
     val citizenId: Int,
-
-    @Column(name = "service_id", nullable = false)
+    @Column("service_id")
     val serviceId: Int,
-
-    @Column(name = "date", nullable = false)
+    @Column("date")
     val date: LocalDate = LocalDate.now(),
-
-    @Column(name = "status_id", nullable = false)
+    @Column("status_id")
     val statusId: Int
-) {
-    // No-arg constructor required by JPA
-    constructor() : this(null, 0, 0, LocalDate.now(), 0)
-}
+)

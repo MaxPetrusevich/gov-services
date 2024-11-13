@@ -5,8 +5,7 @@ import org.springframework.data.relational.core.mapping.Column
 import org.springframework.data.relational.core.mapping.Table
 
 @Table(name = "service")
-data class Service(
-
+data class GovService(
     @Id
     val id: Int? = null,
 
@@ -17,5 +16,5 @@ data class Service(
     val description: String,
 
     @Column("category")
-    val category: String
+    val categoryId: Int
 )

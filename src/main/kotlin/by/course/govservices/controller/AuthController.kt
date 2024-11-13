@@ -3,7 +3,8 @@ package by.course.govservices.controller
 import by.course.govservices.dto.LoginRequest
 import by.course.govservices.dto.UserRegisterDto
 
-import by.course.govservices.service.IAuthService
+import by.course.govservices.service.auth.IAuthService
+import jakarta.validation.Valid
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
@@ -18,7 +19,7 @@ class AuthController(
     private val logger = LoggerFactory.getLogger(AuthController::class.java)
 
     @PostMapping("/register")
-    fun register(@RequestBody userRegisterDto: UserRegisterDto): Mono<ResponseEntity<String>> {
+    fun register(@Valid @RequestBody userRegisterDto: UserRegisterDto): Mono<ResponseEntity<String>> {
         return authService.register(userRegisterDto)
             .doOnSuccess { logger.info("User registered: ${userRegisterDto.identifyNumber}") }
             .then(Mono.just(ResponseEntity.ok("User registered successfully")))
@@ -29,7 +30,7 @@ class AuthController(
     }
 
     @PostMapping("/login")
-    fun login(@RequestBody loginRequest: LoginRequest): Mono<String> {
+    fun login(@Valid @RequestBody loginRequest: LoginRequest): Mono<String> {
         return authService.login(loginRequest)
     }
 }

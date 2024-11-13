@@ -1,4 +1,4 @@
-package by.course.govservices.repositories.postgres
+package by.course.govservices.repositories
 
 import by.course.govservices.entities.User
 import org.springframework.data.repository.reactive.ReactiveCrudRepository

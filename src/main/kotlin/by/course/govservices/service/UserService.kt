@@ -1,7 +1,7 @@
 package by.course.govservices.service
 
 import by.course.govservices.entities.User
-import by.course.govservices.repositories.postgres.UserRepository
+import by.course.govservices.repositories.UserRepository
 import org.springframework.security.core.userdetails.ReactiveUserDetailsService
 import org.springframework.security.core.userdetails.UserDetails
 import org.springframework.security.core.userdetails.UsernameNotFoundException

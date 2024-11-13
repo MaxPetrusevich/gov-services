@@ -1,4 +1,4 @@
-package by.course.govservices.service
+package by.course.govservices.service.auth
 
 import by.course.govservices.config.security.IJwtTokenProvider
 import by.course.govservices.dto.LoginRequest
@@ -7,8 +7,8 @@ import by.course.govservices.entities.Citizen
 import by.course.govservices.entities.User
 import by.course.govservices.exceptions.InvalidCredentialsException
 import by.course.govservices.exceptions.UserNotFoundException
-import by.course.govservices.repositories.postgres.CitizenRepository
-import by.course.govservices.repositories.postgres.UserRepository
+import by.course.govservices.repositories.CitizenRepository
+import by.course.govservices.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
@@ -24,7 +24,7 @@ class AuthService(
     private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
     override fun register(userRegisterDto: UserRegisterDto): Mono<Map<String, Any>> {
-        return citizenRepository.findByIdentifyNumber(userRegisterDto.identifyNumber)
+        return citizenRepository.findCitizenByIdentifyNumber(userRegisterDto.identifyNumber)
             .flatMap { existingCitizen ->
                 // Возвращаем ошибку с нужным типом
                 Mono.error<Map<String, Any>>(Exception("Citizen with identify number ${existingCitizen.identifyNumber} already exists"))

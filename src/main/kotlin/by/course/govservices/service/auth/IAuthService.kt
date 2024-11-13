@@ -1,8 +1,7 @@
-package by.course.govservices.service
+package by.course.govservices.service.auth
 
 import by.course.govservices.dto.LoginRequest
 import by.course.govservices.dto.UserRegisterDto
-import by.course.govservices.entities.User
 import reactor.core.publisher.Mono
 
 interface IAuthService {

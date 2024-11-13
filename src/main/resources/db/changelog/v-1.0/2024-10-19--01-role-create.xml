@@ -14,5 +14,14 @@
             </column>
         </createTable>
     </changeSet>
-
+    <changeSet id="14" author="dev">
+        <insert tableName="role">
+            <column name="ID" value="1"/>
+            <column name="role" value="USER"/>
+        </insert>
+        <insert tableName="role">
+            <column name="ID" value="2"/>
+            <column name="role" value="ADMIN"/>
+        </insert>
+    </changeSet>
 </databaseChangeLog>

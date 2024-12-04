@@ -3,23 +3,20 @@ package by.course.govservices.config.security
 import by.course.govservices.entities.User
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.SignatureAlgorithm
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
-import reactor.core.publisher.Mono
 import java.security.Key
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.*
 
+@Suppress("UNCHECKED_CAST", "DEPRECATION")
 @Component
 class JwtTokenProviderImpl(
     @Value("\${auth.secretKey}")
     private val secretKey: String
 ) : IJwtTokenProvider {
-    private val signingKey: Key = Keys.hmacShaKeyFor(secretKey.toByteArray(Charsets.UTF_8).copyOf(32))
 
+    private val signingKey: Key = Keys.hmacShaKeyFor(secretKey.toByteArray(Charsets.UTF_8).copyOf(32))
 
     override fun generateToken(user: User): String {
         return Jwts.builder()
@@ -44,32 +41,31 @@ class JwtTokenProviderImpl(
             .compact()
     }
 
-    override fun validateToken(token: String): Mono<Boolean> {
+    override fun validateToken(token: String): Boolean {
         return try {
             val claims = getClaimsFromToken(token)
             val isTokenExpired = claims.expiration.before(Date())
-            Mono.just(!isTokenExpired)
+            !isTokenExpired
         } catch (e: Exception) {
-            Mono.just(false)
+            false
         }
     }
 
-    override fun getUsernameFromToken(token: String): Mono<String> {
+    override fun getUsernameFromToken(token: String): String {
         return try {
             val claims = getClaimsFromToken(token)
-            Mono.just(claims.subject)
+            claims.subject
         } catch (e: Exception) {
-            Mono.empty()
+            ""
         }
     }
 
-    override fun getRolesFromToken(token: String): Mono<List<String>> {
+    override fun getRolesFromToken(token: String): List<String> {
         return try {
             val claims = getClaimsFromToken(token)
-            val roles = claims["roles"] as List<String>
-            Mono.just(roles)
+            claims["roles"] as List<String>
         } catch (e: Exception) {
-            Mono.empty()
+            emptyList()
         }
     }
 

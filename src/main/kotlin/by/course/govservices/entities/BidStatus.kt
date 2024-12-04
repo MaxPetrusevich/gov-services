@@ -1,15 +1,16 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
+import jakarta.persistence.Entity
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 
-
-@Table(name = "bid_status")
-data class BidStatus(
-
+@Entity
+@Table(name ="bid_status")
+class BidStatus(
     @Id
-    val id: Int? = null,
-    @Column("status")
-    val status: String
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
+    var status: String? = null
 )

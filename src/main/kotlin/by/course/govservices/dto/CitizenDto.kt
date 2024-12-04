@@ -1,7 +1,7 @@
 package by.course.govservices.dto
 
 data class CitizenDto(
-    val id: Int?,
+    val id: Long?,
     val firstName: String,
     val lastName: String,
     val middleName: String?,
@@ -11,5 +11,5 @@ data class CitizenDto(
     val passportSeries: String?,
     val passportNumber: String?,
     val address: String,
-    val userId: Int
+    val userId: Long
 )

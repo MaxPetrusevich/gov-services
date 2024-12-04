@@ -5,94 +5,110 @@ import by.course.govservices.entities.Citizen
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.CitizenRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Service
 class CitizenService(
     private val citizenRepository: CitizenRepository
-) : BaseService<CitizenDto, Int> {  // Используем Int вместо Long
+) {
 
-    override fun findAll(
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<CitizenDto> {
+    ): Page<CitizenDto> {
         val pageRequest = PageRequest.of(pagination.page, pagination.size)
 
-        // Строим динамическую строку для фильтров
-        val whereClause = buildDynamicFilterClause(filters)
+        val specification = buildSpecification(filters)
 
-        return citizenRepository.findByDynamicFilter(whereClause)
-            .skip(pageRequest.pageNumber * pageRequest.pageSize.toLong()) // Пропускаем нужное количество записей
-            .take(pageRequest.pageSize.toLong()) // Берем только нужное количество записей
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Citizens not found")))
-    }
-
-    override fun findById(id: Int): Mono<CitizenDto> {  // Используем Int вместо Long
-        return citizenRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Citizen with ID $id not found")))
-    }
-
-    override fun save(entity: CitizenDto): Mono<CitizenDto> {
-        return citizenRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save citizen: ${e.message}") }
-    }
-
-    override fun update(id: Int, entity: CitizenDto): Mono<CitizenDto> {  // Используем Int вместо Long
-        return citizenRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Citizen with ID $id not found")))
-            .flatMap { citizenRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update citizen: ${e.message}") }
-    }
-
-    override fun delete(id: Int): Mono<Void> {  // Используем Int вместо Long
-        return citizenRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Citizen with ID $id not found")))
-            .flatMap { citizenRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete citizen: ${e.message}") }
-    }
-
-    // Метод для построения динамической строки фильтров для SQL-запроса
-    private fun buildDynamicFilterClause(filters: List<FilterCriteria>): String {
-        val filterClauses = mutableListOf<String>()
-
-        filters.forEach { filter ->
-            when (filter.field) {
-                "firstName" -> filterClauses.add("first_name LIKE '%${filter.value}%'")
-                "lastName" -> filterClauses.add("last_name LIKE '%${filter.value}%'")
-                "identifyNumber" -> filterClauses.add("identify_number LIKE '%${filter.value}%'")
-                "address" -> filterClauses.add("address LIKE '%${filter.value}%'")
-                "email" -> filterClauses.add("email LIKE '%${filter.value}%'")
-                else -> {} // Пропускаем неизвестные фильтры
-            }
+        val page = citizenRepository.findAll(specification, pageRequest)
+        if (page.isEmpty) {
+            throw NotFoundException("Citizens not found")
         }
 
-        return filterClauses.joinToString(" AND ")
+        return page.map { it.toDto() }
     }
 
-    // Дополнительные методы для поиска граждан по имени и идентификационному номеру
-    fun findByFirstName(name: String): Mono<CitizenDto> {
-        return citizenRepository.findByFirstName(name)
+    fun findById(id: Long): CitizenDto {
+        return citizenRepository.findById(id)
             .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Citizen with name $name not found")))
+            .orElseThrow { NotFoundException("Citizen with ID $id not found") }
     }
 
-    fun findByIdentifyNumber(identifier: String): Mono<CitizenDto> {
-        return citizenRepository.findCitizenByIdentifyNumber(identifier)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Citizen with identifier $identifier not found")))
+    fun save(entity: CitizenDto): CitizenDto {
+        return try {
+            citizenRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save citizen: ${e.message}")
+        }
+    }
+
+    fun update(id: Long, entity: CitizenDto): CitizenDto {
+        citizenRepository.findById(id)
+            .orElseThrow { NotFoundException("Citizen with ID $id not found") }
+
+        return try {
+            citizenRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update citizen: ${e.message}")
+        }
+    }
+
+    fun delete(id: Long) {
+        val existingCitizen = citizenRepository.findById(id)
+            .orElseThrow { NotFoundException("Citizen with ID $id not found") }
+
+        try {
+            citizenRepository.delete(existingCitizen)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete citizen: ${e.message}")
+        }
+    }
+
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<Citizen> {
+        return Specification { root, query, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "firstName" -> cb.like(root.get("firstName"), "%${filter.value}%")
+                    "lastName" -> cb.like(root.get("lastName"), "%${filter.value}%")
+                    "identifyNumber" -> cb.like(root.get("identifyNumber"), "%${filter.value}%")
+                    "address" -> cb.like(root.get("address"), "%${filter.value}%")
+                    "email" -> cb.like(root.get("email"), "%${filter.value}%")
+                    else -> null
+                }
+            }.reduce(cb::and)
+        }
     }
 }
-
 // Преобразование Citizen в DTO и наоборот
-fun Citizen.toDto(): CitizenDto = CitizenDto(id, firstName, lastName, middleName, phone, email, identifyNumber, passportSeries, passportNumber, address, userId)
-fun CitizenDto.toEntity(): Citizen = Citizen(id, firstName, lastName, middleName, phone, email, identifyNumber, passportSeries, passportNumber, address, userId)
+fun Citizen.toDto(): CitizenDto = CitizenDto(
+    id = this.id,
+    firstName = this.firstName ?: "",
+    lastName = this.lastName ?: "",
+    middleName = this.middleName,
+    phone = this.phone,
+    email = this.email,
+    identifyNumber = this.identifyNumber ?: "",
+    passportSeries = this.passportSeries,
+    passportNumber = this.passportNumber,
+    address = this.address ?: "",
+    userId = this.user?.id?: 0
+)
+
+fun CitizenDto.toEntity(): Citizen = Citizen(
+    id = this.id?.toLong(),
+    firstName = this.firstName,
+    lastName = this.lastName,
+    middleName = this.middleName,
+    phone = this.phone,
+    email = this.email,
+    identifyNumber = this.identifyNumber,
+    passportSeries = this.passportSeries,
+    passportNumber = this.passportNumber,
+    address = this.address,
+    user = null // Нужно устанавливать пользователя отдельно в сервисе, если требуется
+)

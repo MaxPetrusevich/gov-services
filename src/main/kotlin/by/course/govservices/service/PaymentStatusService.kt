@@ -5,58 +5,106 @@ import by.course.govservices.entities.PaymentStatus
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.PaymentStatusRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Mono
-import reactor.core.publisher.Flux
 
 @Service
 class PaymentStatusService(
     private val paymentStatusRepository: PaymentStatusRepository
-) : BaseService<PaymentStatusDto, Long> {
+) {
 
-    override fun findAll(
+    /**
+     * Получение всех статусов с учетом фильтров и пагинации.
+     */
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<PaymentStatusDto> {
+    ): Page<PaymentStatusDto> {
+        val pageRequest = PageRequest.of(pagination.page, pagination.size)
+        val specification = buildSpecification(filters)
 
-        val statusFilter = filters.find { it.field == "status" }?.value ?: ""
+        val statuses = paymentStatusRepository.findAll(specification, pageRequest)
+        if (statuses.isEmpty) {
+            throw NotFoundException("Payment statuses not found")
+        }
 
-        return paymentStatusRepository.findAllByStatusContainingIgnoreCase(statusFilter)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Payment statuses not found")))
+        return statuses.map { it.toDto() }
     }
 
-    override fun findById(id: Long): Mono<PaymentStatusDto> {
-        return paymentStatusRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Payment status with ID $id not found")))
+    /**
+     * Получение статуса по ID.
+     */
+    fun findById(id: Long): PaymentStatusDto {
+        val status = paymentStatusRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment status with ID $id not found") }
+        return status.toDto()
     }
 
-    override fun save(entity: PaymentStatusDto): Mono<PaymentStatusDto> {
-        return paymentStatusRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save payment status: ${e.message}") }
+    /**
+     * Создание нового статуса.
+     */
+    fun save(dto: PaymentStatusDto): PaymentStatusDto {
+        return try {
+            paymentStatusRepository.save(dto.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save payment status: ${e.message}")
+        }
     }
 
-    override fun update(id: Long, entity: PaymentStatusDto): Mono<PaymentStatusDto> {
-        return paymentStatusRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Payment status with ID $id not found")))
-            .flatMap { paymentStatusRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update payment status: ${e.message}") }
+    /**
+     * Обновление существующего статуса.
+     */
+    fun update(id: Long, dto: PaymentStatusDto): PaymentStatusDto {
+        val existingStatus = paymentStatusRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment status with ID $id not found") }
+
+        return try {
+            paymentStatusRepository.save(dto.toEntity(existingStatus)).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update payment status: ${e.message}")
+        }
     }
 
-    override fun delete(id: Long): Mono<Void> {
-        return paymentStatusRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Payment status with ID $id not found")))
-            .flatMap { paymentStatusRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete payment status: ${e.message}") }
+    /**
+     * Удаление статуса по ID.
+     */
+    fun delete(id: Long) {
+        val status = paymentStatusRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment status with ID $id not found") }
+
+        try {
+            paymentStatusRepository.delete(status)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete payment status: ${e.message}")
+        }
+    }
+
+    /**
+     * Создание спецификации для фильтров.
+     */
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<PaymentStatus> {
+        return Specification { root, _, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "status" -> cb.like(cb.lower(root.get("status")), "%${filter.value.lowercase()}%")
+                    else -> null
+                }
+            }.reduceOrNull { a, b -> cb.and(a, b) }
+        }
     }
 }
+// Преобразование PaymentStatus в DTO
+fun PaymentStatus.toDto(): PaymentStatusDto = PaymentStatusDto(
+    id = this.id,
+    status = this.status ?: throw IllegalStateException("Status must not be null")
+)
 
-// Преобразование PaymentStatus в DTO и наоборот
-fun PaymentStatus.toDto(): PaymentStatusDto = PaymentStatusDto(id, status)
-fun PaymentStatusDto.toEntity(): PaymentStatus = PaymentStatus(id, status)
+// Преобразование PaymentStatusDto в сущность
+fun PaymentStatusDto.toEntity(existingEntity: PaymentStatus? = null): PaymentStatus = PaymentStatus(
+    id = existingEntity?.id ?: this.id,
+    status = this.status
+)

@@ -1,20 +1,17 @@
 package by.course.govservices.repositories
 
 import by.course.govservices.entities.Payment
-import org.springframework.data.repository.reactive.ReactiveCrudRepository
-import org.springframework.data.r2dbc.repository.Query
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import java.time.LocalDate
 
 @Repository
-interface PaymentRepository : ReactiveCrudRepository<Payment, Long> {
+interface PaymentRepository : JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
 
     // Динамическое выполнение запроса с условиями
-    @Query("SELECT * FROM payment WHERE :whereClause")
-    fun findByDynamicFilter(whereClause: String): Flux<Payment>
-
-    // Пример поиска платежа по дате
-    fun findByDate(date: LocalDate): Mono<Payment>
+    @Query("SELECT p FROM Payment p WHERE p.date = :date")
+    fun findByDate(@Param("date") date: LocalDate): List<Payment>
 }

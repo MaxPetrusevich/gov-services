@@ -5,58 +5,106 @@ import by.course.govservices.entities.Role
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.RoleRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Mono
-import reactor.core.publisher.Flux
 
 @Service
 class RoleService(
     private val roleRepository: RoleRepository
-) : BaseService<RoleDto, Long> {
+) {
 
-    override fun findAll(
+    /**
+     * Получение всех ролей с фильтрацией и пагинацией.
+     */
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<RoleDto> {
+    ): Page<RoleDto> {
+        val pageRequest = PageRequest.of(pagination.page, pagination.size)
+        val specification = buildSpecification(filters)
 
-        val roleFilter = filters.find { it.field == "role" }?.value ?: ""
+        val roles = roleRepository.findAll(specification, pageRequest)
+        if (roles.isEmpty) {
+            throw NotFoundException("Roles not found")
+        }
 
-        return roleRepository.findAllByRoleContainingIgnoreCase(roleFilter)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Roles not found")))
+        return roles.map { it.toDto() }
     }
 
-    override fun findById(id: Long): Mono<RoleDto> {
-        return roleRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Role with ID $id not found")))
+    /**
+     * Получение роли по ID.
+     */
+    fun findById(id: Long): RoleDto {
+        val role = roleRepository.findById(id)
+            .orElseThrow { NotFoundException("Role with ID $id not found") }
+        return role.toDto()
     }
 
-    override fun save(entity: RoleDto): Mono<RoleDto> {
-        return roleRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save role: ${e.message}") }
+    /**
+     * Создание новой роли.
+     */
+    fun save(dto: RoleDto): RoleDto {
+        return try {
+            roleRepository.save(dto.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save role: ${e.message}")
+        }
     }
 
-    override fun update(id: Long, entity: RoleDto): Mono<RoleDto> {
-        return roleRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Role with ID $id not found")))
-            .flatMap { roleRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update role: ${e.message}") }
+    /**
+     * Обновление существующей роли.
+     */
+    fun update(id: Long, dto: RoleDto): RoleDto {
+        val existingRole = roleRepository.findById(id)
+            .orElseThrow { NotFoundException("Role with ID $id not found") }
+
+        return try {
+            roleRepository.save(dto.toEntity(existingRole)).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update role: ${e.message}")
+        }
     }
 
-    override fun delete(id: Long): Mono<Void> {
-        return roleRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Role with ID $id not found")))
-            .flatMap { roleRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete role: ${e.message}") }
+    /**
+     * Удаление роли по ID.
+     */
+    fun delete(id: Long) {
+        val role = roleRepository.findById(id)
+            .orElseThrow { NotFoundException("Role with ID $id not found") }
+
+        try {
+            roleRepository.delete(role)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete role: ${e.message}")
+        }
+    }
+
+    /**
+     * Создание спецификации для фильтров.
+     */
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<Role> {
+        return Specification { root, _, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "role" -> cb.like(cb.lower(root.get("roleName")), "%${filter.value.lowercase()}%")
+                    else -> null
+                }
+            }.reduceOrNull { a, b -> cb.and(a, b) }
+        }
     }
 }
+// Преобразование Role в DTO
+fun Role.toDto(): RoleDto = RoleDto(
+    id = this.id,
+    role = this.roleName ?: throw IllegalStateException("Role name must not be null")
+)
 
-// Преобразование Role в DTO и наоборот
-fun Role.toDto(): RoleDto = RoleDto(id, role)
-fun RoleDto.toEntity(): Role = Role(id, role)
+// Преобразование RoleDto в сущность
+fun RoleDto.toEntity(existingEntity: Role? = null): Role = Role(
+    id = existingEntity?.id ?: this.id,
+    roleName = this.role
+)

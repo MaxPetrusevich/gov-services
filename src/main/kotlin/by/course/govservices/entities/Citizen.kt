@@ -1,44 +1,43 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
-import java.time.LocalDate
+import jakarta.persistence.*
 
+@Entity
 @Table(name = "citizen")
 data class Citizen(
 
     @Id
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
 
-    @Column("first_name")
-    val firstName: String,
+    @Column(name = "first_name")
+    val firstName: String? = null,
 
-    @Column("last_name")
-    val lastName: String,
+    @Column(name = "last_name")
+    val lastName: String? = null,
 
-    @Column("middle_name")
-    val middleName: String? = null, // Поле может быть null
+    @Column(name = "middle_name")
+    val middleName: String? = null,
 
-    @Column("phone")
-    val phone: String? = null, // Поле может быть null
+    @Column(name = "phone")
+    val phone: String? = null,
 
-    @Column("email")
-    val email: String? = null, // Поле может быть null
+    @Column(name = "email")
+    val email: String? = null,
 
-    @Column("identify_number")
-    val identifyNumber: String, // Обязательно к заполнению
+    @Column(name = "identify_number")
+    val identifyNumber: String? = null,
 
-    @Column("passport_series")
-    val passportSeries: String? = null, // Поле может быть null
+    @Column(name = "passport_series")
+    val passportSeries: String? = null,
 
-    @Column("passport_number")
-    val passportNumber: String? = null, // Поле может быть null
+    @Column(name = "passport_number")
+    val passportNumber: String? = null,
 
-    @Column("address")
-    val address: String, // Обязательно к заполнению
+    @Column(name = "address")
+    val address: String? = null,
 
-    @Column("user_id")
-    val userId: Int
-
+    @ManyToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false)
+    val user: User? = null
 )

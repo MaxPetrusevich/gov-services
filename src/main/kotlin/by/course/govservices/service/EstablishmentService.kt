@@ -5,76 +5,106 @@ import by.course.govservices.entities.Establishment
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.EstablishmentRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.PageRequest
+import org.springframework.data.domain.Page
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Service
 class EstablishmentService(
     private val establishmentRepository: EstablishmentRepository
-) : BaseService<EstablishmentDto, Int> {  // Используем Int для идентификаторов учреждений
+) {
 
-    override fun findAll(
+    /**
+     * Возвращает все учреждения с учетом фильтров и пагинации.
+     */
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<EstablishmentDto> {
-        // Строим динамическую строку для фильтров
-        val whereClause = buildDynamicFilterClause(filters)
+    ): Page<EstablishmentDto> {
+        val pageRequest = PageRequest.of(pagination.page, pagination.size)
+        val specification = buildSpecification(filters)
 
-        return establishmentRepository.findByDynamicFilter(whereClause)
-            .skip((pagination.page * pagination.size).toLong()) // Пропускаем записи на основе пагинации
-            .take(pagination.size.toLong()) // Берем нужное количество записей
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Establishments not found")))
-    }
-
-    override fun findById(id: Int): Mono<EstablishmentDto> {  // Используем Int для идентификаторов
-        return establishmentRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Establishment with ID $id not found")))
-    }
-
-    override fun save(entity: EstablishmentDto): Mono<EstablishmentDto> {
-        return establishmentRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save establishment: ${e.message}") }
-    }
-
-    override fun update(id: Int, entity: EstablishmentDto): Mono<EstablishmentDto> {  // Используем Int для идентификаторов
-        return establishmentRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Establishment with ID $id not found")))
-            .flatMap { establishmentRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update establishment: ${e.message}") }
-    }
-
-    override fun delete(id: Int): Mono<Void> {  // Используем Int для идентификаторов
-        return establishmentRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Establishment with ID $id not found")))
-            .flatMap { establishmentRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete establishment: ${e.message}") }
-    }
-
-    // Метод для построения динамической строки фильтров для SQL-запроса
-    private fun buildDynamicFilterClause(filters: List<FilterCriteria>): String {
-        val filterClauses = mutableListOf<String>()
-
-        filters.forEach { filter ->
-            when (filter.field) {
-                "name" -> filterClauses.add("name LIKE '%${filter.value}%'")
-                "address" -> filterClauses.add("address LIKE '%${filter.value}%'")
-                "contact" -> filterClauses.add("contact LIKE '%${filter.value}%'")
-                else -> {} // Пропускаем неизвестные фильтры
-            }
+        val page = establishmentRepository.findAll(specification, pageRequest)
+        if (page.isEmpty) {
+            throw NotFoundException("Establishments not found")
         }
 
-        return filterClauses.joinToString(" AND ")
+        return page.map { it.toDto() }
+    }
+
+    /**
+     * Находит учреждение по идентификатору.
+     */
+    fun findById(id: Long): EstablishmentDto {
+        return establishmentRepository.findById(id)
+            .map { it.toDto() }
+            .orElseThrow { NotFoundException("Establishment with ID $id not found") }
+    }
+
+    /**
+     * Сохраняет новое учреждение.
+     */
+    fun save(entity: EstablishmentDto): EstablishmentDto {
+        return try {
+            establishmentRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save establishment: ${e.message}")
+        }
+    }
+
+    /**
+     * Обновляет существующее учреждение.
+     */
+    fun update(id: Long, entity: EstablishmentDto): EstablishmentDto {
+        establishmentRepository.findById(id)
+            .orElseThrow { NotFoundException("Establishment with ID $id not found") }
+
+        return try {
+            establishmentRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update establishment: ${e.message}")
+        }
+    }
+
+    /**
+     * Удаляет учреждение по идентификатору.
+     */
+    fun delete(id: Long) {
+        val existingEstablishment = establishmentRepository.findById(id)
+            .orElseThrow { NotFoundException("Establishment with ID $id not found") }
+
+        try {
+            establishmentRepository.delete(existingEstablishment)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete establishment: ${e.message}")
+        }
+    }
+
+    /**
+     * Создает спецификацию для фильтров.
+     */
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<Establishment> {
+        return Specification { root, _, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "name" -> cb.like(root.get<String>("name"), "%${filter.value}%")
+                    "address" -> cb.like(root.get<String>("address"), "%${filter.value}%")
+                    "contact" -> cb.like(root.get<String>("contact"), "%${filter.value}%")
+                    else -> null
+                }
+            }.reduce { a, b -> cb.and(a, b) }
+        }
     }
 }
+fun Establishment.toDto(): EstablishmentDto = EstablishmentDto(
+    id = this.id,
+    name = this.name ?: ""
+)
 
-// Преобразование Establishment в DTO и наоборот
-fun Establishment.toDto(): EstablishmentDto = EstablishmentDto(id, name)
-fun EstablishmentDto.toEntity(): Establishment = Establishment(id, name)
+fun EstablishmentDto.toEntity(): Establishment = Establishment(
+    id = this.id,
+    name = this.name
+)

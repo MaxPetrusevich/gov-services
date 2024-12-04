@@ -1,6 +1,6 @@
 package by.course.govservices.dto
 
 data class RoleDto(
-    val id: Int?,
+    val id: Long?,
     val role: String
 )

@@ -1,11 +1,12 @@
 package by.course.govservices.repositories
 
 import by.course.govservices.entities.Type
-import org.springframework.data.repository.reactive.ReactiveCrudRepository
+import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 import org.springframework.stereotype.Repository
-import reactor.core.publisher.Mono
 
 @Repository
-interface TypeRepository : ReactiveCrudRepository<Type, Long> {
-    fun findByType(code: String): Mono<Type>
+interface TypeRepository : JpaRepository<Type, Long>, JpaSpecificationExecutor<Type> {
+
+    fun findByType(code: String): Type?
 }

@@ -1,93 +1,137 @@
 package by.course.govservices.service
 
 import by.course.govservices.dto.PaymentDto
+import by.course.govservices.entities.Bid
 import by.course.govservices.entities.Payment
+import by.course.govservices.entities.PaymentStatus
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.PaymentRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
+import java.math.BigDecimal
 import java.time.LocalDate
 
 @Service
 class PaymentService(
     private val paymentRepository: PaymentRepository
-) : BaseService<PaymentDto, Long> {
+) {
 
-    override fun findAll(
+    /**
+     * Получение всех платежей с учетом фильтров и пагинации.
+     */
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<PaymentDto> {
+    ): Page<PaymentDto> {
         val pageRequest = PageRequest.of(pagination.page, pagination.size)
+        val specification = buildSpecification(filters)
 
-        // Строим динамическую строку для фильтров
-        val whereClause = buildDynamicFilterClause(filters)
-
-        return paymentRepository.findByDynamicFilter(whereClause)
-            .skip(pageRequest.pageNumber * pageRequest.pageSize.toLong()) // Пропускаем нужное количество записей
-            .take(pageRequest.pageSize.toLong()) // Берем только нужное количество записей
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Payments not found")))
-    }
-
-    override fun findById(id: Long): Mono<PaymentDto> {
-        return paymentRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Payment with ID $id not found")))
-    }
-
-    override fun save(entity: PaymentDto): Mono<PaymentDto> {
-        return paymentRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save payment: ${e.message}") }
-    }
-
-    override fun update(id: Long, entity: PaymentDto): Mono<PaymentDto> {
-        return paymentRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Payment with ID $id not found")))
-            .flatMap { paymentRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update payment: ${e.message}") }
-    }
-
-    override fun delete(id: Long): Mono<Void> {
-        return paymentRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Payment with ID $id not found")))
-            .flatMap { paymentRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete payment: ${e.message}") }
-    }
-
-    // Метод для построения динамической строки фильтров для SQL-запроса
-    private fun buildDynamicFilterClause(filters: List<FilterCriteria>): String {
-        val filterClauses = mutableListOf<String>()
-
-        filters.forEach { filter ->
-            when (filter.field) {
-                "bidId" -> filterClauses.add("bid_id LIKE '%${filter.value}%'")
-                "sum" -> filterClauses.add("sum LIKE '%${filter.value}%'")
-                "date" -> filterClauses.add("date = '${filter.value}'")
-                "statusId" -> filterClauses.add("status_id = '${filter.value}'")
-                else -> {} // Пропускаем неизвестные фильтры
-            }
+        val page = paymentRepository.findAll(specification, pageRequest)
+        if (page.isEmpty) {
+            throw NotFoundException("Payments not found")
         }
 
-        return filterClauses.joinToString(" AND ")
+        return page.map { it.toDto() }
     }
 
+    /**
+     * Получение платежа по ID.
+     */
+    fun findById(id: Long): PaymentDto {
+        val payment = paymentRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment with ID $id not found") }
+        return payment.toDto()
+    }
 
+    /**
+     * Создание нового платежа.
+     */
+    fun save(paymentDto: PaymentDto): PaymentDto {
+        return try {
+            paymentRepository.save(paymentDto.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save payment: ${e.message}")
+        }
+    }
 
-    fun findByDate(date: LocalDate): Mono<PaymentDto> {
-        return paymentRepository.findByDate(date)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Payment on date $date not found")))
+    /**
+     * Обновление существующего платежа.
+     */
+    fun update(id: Long, paymentDto: PaymentDto): PaymentDto {
+        val existingPayment = paymentRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment with ID $id not found") }
+
+        return try {
+            paymentRepository.save(paymentDto.toEntity(existingPayment)).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update payment: ${e.message}")
+        }
+    }
+
+    /**
+     * Удаление платежа по ID.
+     */
+    fun delete(id: Long) {
+        val existingPayment = paymentRepository.findById(id)
+            .orElseThrow { NotFoundException("Payment with ID $id not found") }
+
+        try {
+            paymentRepository.delete(existingPayment)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete payment: ${e.message}")
+        }
+    }
+
+    /**
+     * Получение платежей по дате.
+     */
+    fun findByDate(date: LocalDate): List<PaymentDto> {
+        val payments = paymentRepository.findByDate(date)
+        if (payments.isEmpty()) {
+            throw NotFoundException("Payments on date $date not found")
+        }
+
+        return payments.map { it.toDto() }
+    }
+
+    /**
+     * Создание спецификации для фильтров.
+     */
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<Payment> {
+        return Specification { root, _, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "bidId" -> cb.equal(root.get<Long>("bid").get<Long>("id"), filter.value.toLong())
+                    "sum" -> cb.equal(root.get<BigDecimal>("sum"), filter.value.toBigDecimal())
+                    "date" -> cb.equal(root.get<LocalDate>("date"), LocalDate.parse(filter.value))
+                    "statusId" -> cb.equal(root.get<Long>("status").get<Long>("id"), filter.value.toLong())
+                    else -> null
+                }
+            }.reduce { a, b -> cb.and(a, b) }
+        }
     }
 }
+// Преобразование Payment в DTO
+fun Payment.toDto(): PaymentDto = PaymentDto(
+    id = this.id,
+    bidId = this.bid?.id ?: throw IllegalStateException("Bid must not be null"),
+    sum = this.sum ?: throw IllegalStateException("Sum must not be null"),
+    date = this.date,
+    statusId = this.status?.id ?: throw IllegalStateException("Status must not be null")
+)
 
-// Преобразование Payment в DTO и наоборот
-fun Payment.toDto(): PaymentDto = PaymentDto(id, bidId, sum, date, statusId)
-fun PaymentDto.toEntity(): Payment = Payment(id, bidId, sum, date, statusId)
+// Преобразование PaymentDto в сущность
+fun PaymentDto.toEntity(existingPayment: Payment? = null): Payment = Payment(
+    id = existingPayment?.id ?: this.id,
+    bid = Bid(this.bidId), // Предполагаем, что только ID передается для Bid
+    sum = this.sum,
+    date = this.date,
+    status = PaymentStatus(this.statusId) // Только ID для статуса
+)
+
+

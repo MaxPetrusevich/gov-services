@@ -1,22 +1,19 @@
+package by.course.govservices.config.security
+
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
 import org.springframework.web.cors.CorsConfiguration
-import org.springframework.web.cors.reactive.CorsConfigurationSource
-import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
-
-import org.springframework.web.reactive.config.EnableWebFlux
-import org.springframework.web.reactive.config.WebFluxConfigurer
-
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
-@EnableWebFlux
-class WebConfig : WebFluxConfigurer {
+class WebConfig {
 
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration()
-        configuration.allowedOrigins = listOf("http://localhost:8099/**")
+        configuration.allowedOrigins = listOf("http://localhost:8099")  // Убедитесь, что указали правильный домен
         configuration.allowedMethods = listOf(
             HttpMethod.GET.name(),
             HttpMethod.POST.name(),
@@ -27,8 +24,8 @@ class WebConfig : WebFluxConfigurer {
         configuration.allowedHeaders = listOf("*")
         configuration.allowCredentials = true
 
-        return UrlBasedCorsConfigurationSource().apply {
-            registerCorsConfiguration("/**", configuration)
-        }
+        val source = UrlBasedCorsConfigurationSource()
+        source.registerCorsConfiguration("/**", configuration)
+        return source
     }
 }

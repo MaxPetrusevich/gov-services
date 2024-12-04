@@ -1,89 +1,106 @@
 package by.course.govservices.service
 
 import by.course.govservices.dto.ServiceDto
+import by.course.govservices.entities.Category
+import by.course.govservices.entities.Establishment
 import by.course.govservices.entities.GovService
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.ServiceRepository
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Service
 class GovServiceService(
     private val serviceRepository: ServiceRepository
 ) {
-
-    // Метод для поиска всех сервисов с динамическими фильтрами
+    fun findById(
+        id:Long
+    ): ServiceDto{
+        return serviceRepository.findById(id).orElseThrow().toDto()
+    }
     fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<ServiceDto> {
+    ): Page<ServiceDto> {
         val pageRequest = PageRequest.of(pagination.page, pagination.size)
+        val specification = buildSpecification(filters)
 
-        // Строим динамическую строку для фильтров
-        val whereClause = buildDynamicFilterClause(filters)
-
-        return serviceRepository.findByDynamicFilter(whereClause)
-            .skip(pageRequest.pageNumber * pageRequest.pageSize.toLong()) // Пропускаем нужное количество записей
-            .take(pageRequest.pageSize.toLong()) // Берем только нужное количество записей
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("GovServices not found")))
-    }
-
-    // Метод для поиска сервиса по имени
-    fun findByName(name: String): Mono<ServiceDto> {
-        return serviceRepository.findByName(name)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("GovService with name $name not found")))
-    }
-
-    // Метод для сохранения нового сервиса
-    fun save(serviceDto: ServiceDto): Mono<ServiceDto> {
-        return serviceRepository.save(serviceDto.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save GovService: ${e.message}") }
-    }
-
-    // Метод для обновления сервиса по ID
-    fun update(id: Int, serviceDto: ServiceDto): Mono<ServiceDto> {
-        return serviceRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("GovService with ID $id not found")))
-            .flatMap { serviceRepository.save(serviceDto.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update GovService: ${e.message}") }
-    }
-
-    // Метод для удаления сервиса по ID
-    fun delete(id: Int): Mono<Void> {
-        return serviceRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("GovService with ID $id not found")))
-            .flatMap { serviceRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete GovService: ${e.message}") }
-    }
-
-    // Метод для построения динамической строки фильтров для SQL-запроса
-    private fun buildDynamicFilterClause(filters: List<FilterCriteria>): String {
-        val filterClauses = mutableListOf<String>()
-
-        filters.forEach { filter ->
-            when (filter.field) {
-                "name" -> filterClauses.add("name LIKE '%${filter.value}%'")
-                "description" -> filterClauses.add("description LIKE '%${filter.value}%'")
-                "categoryId" -> filterClauses.add("category_id = '${filter.value}'")
-                else -> {} // Пропускаем неизвестные фильтры
-            }
+        val page = serviceRepository.findAll(specification, pageRequest)
+        if (page.isEmpty) {
+            throw NotFoundException("GovServices not found")
         }
 
-        return filterClauses.joinToString(" AND ")
+        return page.map { it.toDto() }
     }
 
-    // Преобразование GovService в ServiceDto
-    private fun GovService.toDto(): ServiceDto = ServiceDto(id, name, description, categoryId)
+    fun findByName(name: String): List<ServiceDto> {
+        val service = serviceRepository.findByName(name)
+        return service.map{it.toDto()}
+    }
 
-    // Преобразование ServiceDto в сущность GovService
-    private fun ServiceDto.toEntity(): GovService = GovService(id, name, description, categoryId)
+    fun save(serviceDto: ServiceDto): ServiceDto {
+        return try {
+            serviceRepository.save(serviceDto.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save GovService: ${e.message}")
+        }
+    }
+
+    fun update(id: Long, serviceDto: ServiceDto): ServiceDto {
+        serviceRepository.findById(id)
+            .orElseThrow { NotFoundException("GovService with ID $id not found") }
+
+        return try {
+            serviceRepository.save(serviceDto.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update GovService: ${e.message}")
+        }
+    }
+
+    fun delete(id: Long) {
+        val existingService = serviceRepository.findById(id)
+            .orElseThrow { NotFoundException("GovService with ID $id not found") }
+
+        try {
+            serviceRepository.delete(existingService)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete GovService: ${e.message}")
+        }
+    }
+
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<GovService> {
+        return Specification { root, _, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "name" -> cb.like(root.get("name"), "%${filter.value}%")
+                    "description" -> cb.like(root.get("description"), "%${filter.value}%")
+                    "categoryId" -> cb.equal(root.get<Category>("category").get<Long>("id"), filter.value.toLong())
+                    else -> null
+                }
+            }.reduce { a, b -> cb.and(a, b) }
+        }
+    }
+
+    private fun GovService.toDto(): ServiceDto = ServiceDto(
+        id = this.id,
+        name = this.name ?: throw IllegalStateException("Name must not be null"),
+        description = this.description ?: throw IllegalStateException("Description must not be null"),
+        categoryId = this.category?.id ?: throw IllegalStateException("Category must not be null"),
+        establishmentId = this.establishment?.id ?: throw IllegalStateException("Establishment must not be null")
+    )
+
+    private fun ServiceDto.toEntity(): GovService = GovService(
+        id = this.id,
+        name = this.name,
+        description = this.description,
+        category = Category(id = this.categoryId), // Создаем сущность Category из DTO
+        establishment = Establishment(id = this.establishmentId) // Пример преобразования для establishment
+    )
 }
+
+

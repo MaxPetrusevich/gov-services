@@ -1,25 +1,27 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
+import jakarta.persistence.*
 import java.time.LocalDate
 
+@Entity
 @Table(name = "document")
 data class Document(
 
     @Id
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
 
-    @Column("link")
-    val link: String,
+    @Column(name = "link", nullable = false)
+    val link: String? = null,
 
-    @Column("type_id")
-    val typeId: Int,
+    @ManyToOne
+    @JoinColumn(name = "type_id", referencedColumnName = "id")
+    val type: Type? = null, // Связь с сущностью Type
 
-    @Column("loading_date")
+    @Column(name = "loading_date")
     val loadingDate: LocalDate? = null,
 
-    @Column("bid_id")
-    val bidId: Int? = null
+    @ManyToOne
+    @JoinColumn(name = "bid_id", referencedColumnName = "id")
+    val bid: Bid? = null // Связь с сущностью Bid
 )

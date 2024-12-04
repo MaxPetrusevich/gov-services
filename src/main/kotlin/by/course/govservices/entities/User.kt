@@ -1,22 +1,22 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
-import org.springframework.stereotype.Component
+import jakarta.persistence.*
 
+@Entity
 @Table(name = "app_user")
 data class User(
 
     @Id
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
 
-    @Column("identify_number")
-    val identifyNumber: String,
+    @Column(name = "identify_number", nullable = false)
+    val identifyNumber: String? = null,
 
-    @Column("password")
-    val password: String,
+    @Column(name = "password", nullable = false)
+    val password: String? = null,
 
-    @Column("role_id")
-    val roleId: Int
+    @ManyToOne
+    @JoinColumn(name = "role_id", referencedColumnName = "id", nullable = false)
+    val role: Role? = null // Связь с сущностью Role
 )

@@ -8,60 +8,49 @@ import by.course.govservices.entities.User
 import by.course.govservices.exceptions.InvalidCredentialsException
 import by.course.govservices.exceptions.UserNotFoundException
 import by.course.govservices.repositories.CitizenRepository
+import by.course.govservices.repositories.RoleRepository
 import by.course.govservices.repositories.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Mono
 
 @Service
 class AuthService(
     private val userRepository: UserRepository,
     private val citizenRepository: CitizenRepository,
-    private val jwtTokenProvider: IJwtTokenProvider
+    private val jwtTokenProvider: IJwtTokenProvider,
+    private val roleRepository: RoleRepository
 ) : IAuthService {
 
-    private val logger = LoggerFactory.getLogger(AuthService::class.java)
 
-    override fun register(userRegisterDto: UserRegisterDto): Mono<Map<String, Any>> {
-        return citizenRepository.findCitizenByIdentifyNumber(userRegisterDto.identifyNumber)
-            .flatMap { existingCitizen ->
-                // Возвращаем ошибку с нужным типом
-                Mono.error<Map<String, Any>>(Exception("Citizen with identify number ${existingCitizen.identifyNumber} already exists"))
-            }
-            .switchIfEmpty(
-                // Если гражданина нет, создаем нового пользователя и гражданина
-                createUserAndCitizen(userRegisterDto)
-            )
+    override fun register(userRegisterDto: UserRegisterDto): Map<String, Any> {
+        val existingCitizen = citizenRepository.findByIdentifyNumber(userRegisterDto.identifyNumber)
+        if (existingCitizen != null) {
+            throw Exception("Citizen with identify number ${existingCitizen.identifyNumber} already exists")
+        }
+
+        return createUserAndCitizen(userRegisterDto)
     }
 
-
-
-    private fun createUserAndCitizen(userRegisterDto: UserRegisterDto): Mono<Map<String, Any>>  {
+    private fun createUserAndCitizen(userRegisterDto: UserRegisterDto): Map<String, Any> {
         val passwordEncoder = BCryptPasswordEncoder()
         val hashedPassword = passwordEncoder.encode(userRegisterDto.password)
 
         val user = User(
             identifyNumber = userRegisterDto.identifyNumber,
             password = hashedPassword,
-            roleId = userRegisterDto.roleId // Убедитесь, что поле roleId присутствует в User
+            role = roleRepository.findById(userRegisterDto.roleId).orElseThrow() // Убедитесь, что поле roleId присутствует в User
         )
 
-        return userRepository.save(user)
-            .flatMap { savedUser ->
-                createCitizen(userRegisterDto, savedUser.id!!)
-                    .then(Mono.just(savedUser))
-            }
-            .map { savedUser ->
-                // Генерируем токен
-                val token = jwtTokenProvider.generateToken(savedUser)
-                mapOf("user" to savedUser, "token" to token) // Возвращаем пользователя и токен
-            }
-            .doOnSuccess { logger.info("User registered: ${it["user"]}") }
-            .doOnError { e -> logger.error("Error registering user: ${e.message}", e) }
+        val savedUser = userRepository.save(user)
+        val citizen = createCitizen(userRegisterDto, savedUser)
+
+        // Генерируем токен
+        val token = jwtTokenProvider.generateToken(savedUser)
+        return mapOf("user" to savedUser, "token" to token)
     }
 
-    private fun createCitizen(userRegisterDto: UserRegisterDto, userId: Int): Mono<Citizen> { // Измените Int на Long, если id - Long
+    private fun createCitizen(userRegisterDto: UserRegisterDto, user: User): Citizen {
         val citizen = Citizen(
             firstName = userRegisterDto.firstName,
             lastName = userRegisterDto.lastName,
@@ -72,26 +61,22 @@ class AuthService(
             passportSeries = userRegisterDto.passportSeries,
             passportNumber = userRegisterDto.passportNumber,
             address = userRegisterDto.address,
-            userId = userId // Связываем гражданина с пользователем по идентификатору
+            user = user // Связываем гражданина с пользователем по идентификатору
         )
 
         return citizenRepository.save(citizen)
-            .doOnSuccess { logger.info("Citizen registered: ${it.identifyNumber}") }
-            .doOnError { e -> logger.error("Error registering citizen: ${e.message}", e) }
     }
 
-    override  fun login(loginRequest: LoginRequest): Mono<String> {
+    override fun login(loginRequest: LoginRequest): String {
+        val user = userRepository.findByIdentifyNumber(loginRequest.identifyNumber)
+            ?: throw UserNotFoundException("Пользователь не найден")
+
         val passwordEncoder = BCryptPasswordEncoder()
-        return userRepository.findByIdentifyNumber(loginRequest.identifyNumber)
-            .flatMap { user ->
-                // Проверяем, правильный ли пароль
-                if (passwordEncoder.matches(loginRequest.password, user.password)) {
-                    // Если пароль верный, генерируем токен
-                    Mono.just(jwtTokenProvider.generateToken(user))
-                } else {
-                    Mono.error(InvalidCredentialsException("Неверные учетные данные"))
-                }
-            }
-            .switchIfEmpty(Mono.error(UserNotFoundException("Пользователь не найден")))
+        if (!passwordEncoder.matches(loginRequest.password, user.password)) {
+            throw InvalidCredentialsException("Неверные учетные данные")
+        }
+
+        // Генерация токена
+        return jwtTokenProvider.generateToken(user)
     }
 }

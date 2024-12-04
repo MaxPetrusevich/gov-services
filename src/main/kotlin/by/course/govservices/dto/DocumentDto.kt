@@ -3,9 +3,9 @@ package by.course.govservices.dto
 import java.time.LocalDate
 
 data class DocumentDto(
-    val id: Int?,
+    val id: Long?,
     val link: String,
-    val typeId: Int,
+    val typeId: Long,
     val loadingDate: LocalDate?,
-    val bidId: Int?
+    val bidId: Long?
 )

@@ -1,16 +1,15 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
+import jakarta.persistence.*
 
-
+@Entity
 @Table(name = "type")
 data class Type(
 
     @Id
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
 
-    @Column("type")
-    val type: String
+    @Column(name = "type", nullable = false)
+    val type: String? = null
 )

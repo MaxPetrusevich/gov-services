@@ -45,5 +45,5 @@ data class UserRegisterDto(
     )
     val password: String,
 
-    val roleId: Int
+    val roleId: Long
 )

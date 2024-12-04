@@ -1,26 +1,28 @@
 package by.course.govservices.entities
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.relational.core.mapping.Column
-import org.springframework.data.relational.core.mapping.Table
+import jakarta.persistence.*
 import java.math.BigDecimal
 import java.time.LocalDate
 
+@Entity
 @Table(name = "payment")
 data class Payment(
 
     @Id
-    val id: Int? = null,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long? = null,
 
-    @Column("bid_id")
-    val bidId: Int,
+    @ManyToOne
+    @JoinColumn(name = "bid_id", referencedColumnName = "id")
+    val bid: Bid? = null, // Связь с сущностью Bid
 
-    @Column("sum")
-    val sum: BigDecimal,
+    @Column(name = "sum", nullable = false)
+    val sum: BigDecimal? = null,
 
-    @Column("date")
+    @Column(name = "date", nullable = false)
     val date: LocalDate = LocalDate.now(),
 
-    @Column("status_id")
-    val statusId: Int
+    @ManyToOne
+    @JoinColumn(name = "status_id", referencedColumnName = "id")
+    val status: PaymentStatus? = null // Связь с сущностью PaymentStatus
 )

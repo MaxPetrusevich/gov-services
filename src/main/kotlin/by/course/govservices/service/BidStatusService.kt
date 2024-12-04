@@ -2,98 +2,55 @@ package by.course.govservices.service
 
 import by.course.govservices.dto.BidStatusDto
 import by.course.govservices.entities.BidStatus
-import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.BidStatusRepository
-import by.course.govservices.service.base.BaseService
-import by.course.govservices.util.FilterCriteria
-import by.course.govservices.util.PaginationRequest
+import by.course.govservices.service.specifications.BidStatusSpecification
 import org.springframework.data.domain.PageRequest
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Service
 class BidStatusService(
     private val bidStatusRepository: BidStatusRepository
-) : BaseService<BidStatusDto, Int> {
+) {
 
-    override fun findAll(
-        pagination: PaginationRequest,
-        filters: List<FilterCriteria>
-    ): Flux<BidStatusDto> {
-        val pageRequest = PageRequest.of(pagination.page, pagination.size)
+    fun findAll(page: Int, size: Int, filter: String?): List<BidStatusDto> {
+        val pageRequest = PageRequest.of(page, size)
 
-        // Строим динамическую строку для фильтров
-        val whereClause = buildDynamicFilterClause(filters)
+        // Формируем спецификацию на основе фильтра
+        val specification = BidStatusSpecification(filter)
 
-        return bidStatusRepository.findByDynamicFilter(whereClause)
-            .skip(pageRequest.pageNumber * pageRequest.pageSize.toLong()) // Пропускаем нужное количество записей
-            .take(pageRequest.pageSize.toLong()) // Берем только нужное количество записей
-            .map { it.toDto() } // Преобразуем в BidStatusDto
-            .switchIfEmpty(Mono.error(NotFoundException("BidStatuses not found"))) // Если пусто, выбрасываем ошибку
-    }
-
-    override fun findById(id: Int): Mono<BidStatusDto> {
-        return bidStatusRepository.findById(id)
-            .map { it.toDto() } // Преобразуем в BidStatusDto
-            .switchIfEmpty(Mono.error(NotFoundException("BidStatus with ID $id not found"))) // Если не найдено, выбрасываем ошибку
-    }
-
-    override fun save(entity: BidStatusDto): Mono<BidStatusDto> {
-        return bidStatusRepository.save(entity.toEntity()) // Сохраняем как сущность
-            .map { it.toDto() } // Преобразуем в BidStatusDto
-            .onErrorMap { e -> DataFormatException("Failed to save bidStatus: ${e.message}") }
-    }
-
-    override fun update(id: Int, entity: BidStatusDto): Mono<BidStatusDto> {
-        return bidStatusRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("BidStatus with ID $id not found"))) // Проверка на существование
-            .flatMap { bidStatusRepository.save(entity.toEntity()) } // Обновляем сущность
-            .map { it.toDto() } // Преобразуем в BidStatusDto
-            .onErrorMap { e -> DataFormatException("Failed to update bidStatus: ${e.message}") }
-    }
-
-    override fun delete(id: Int): Mono<Void> {
-        return bidStatusRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("BidStatus with ID $id not found"))) // Проверка на существование
-            .flatMap { bidStatusRepository.delete(it) } // Удаляем
-            .onErrorMap { e -> DataFormatException("Failed to delete bidStatus: ${e.message}") }
-    }
-
-    // Метод для построения динамической строки фильтров для SQL-запроса
-    private fun buildDynamicFilterClause(filters: List<FilterCriteria>): String {
-        val filterClauses = mutableListOf<String>()
-
-        filters.forEach { filter ->
-            when (filter.field) {
-                "statusName" -> filterClauses.add("status_name LIKE '%${filter.value}%'")
-                "statusCode" -> filterClauses.add("status_code LIKE '%${filter.value}%'")
-                else -> {} // Пропускаем неизвестные фильтры
-            }
-        }
-
-        return filterClauses.joinToString(" AND ")
-    }
-
-    // Дополнительные методы для поиска статусов по имени и коду
-    fun findByStatusName(statusName: String): Mono<BidStatusDto> {
-        return bidStatusRepository.findByStatus(statusName)
+        return bidStatusRepository.findAll(specification, pageRequest)
             .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("BidStatus with name $statusName not found")))
+            .toList()
+    }
+
+    fun findById(id: Long): BidStatusDto {
+        val bidStatus = bidStatusRepository.findById(id).orElseThrow { NotFoundException("BidStatus with ID $id not found") }
+        return bidStatus.toDto()
+    }
+
+    fun save(bidStatusDto: BidStatusDto): BidStatusDto {
+        val bidStatus = bidStatusDto.toEntity()
+        val savedBidStatus = bidStatusRepository.save(bidStatus)
+        return savedBidStatus.toDto()
+    }
+
+    fun update(id: Long, bidStatusDto: BidStatusDto): BidStatusDto {
+        if (!bidStatusRepository.existsById(id)) {
+            throw NotFoundException("BidStatus with ID $id not found")
+        }
+        val bidStatus = bidStatusDto.toEntity()
+        val updatedBidStatus = bidStatusRepository.save(bidStatus)
+        return updatedBidStatus.toDto()
+    }
+
+    fun delete(id: Long) {
+        if (!bidStatusRepository.existsById(id)) {
+            throw NotFoundException("BidStatus with ID $id not found")
+        }
+        bidStatusRepository.deleteById(id)
     }
 }
+fun BidStatus.toDto(): BidStatusDto = BidStatusDto(id, status)
+fun BidStatusDto.toEntity(): BidStatus = BidStatus(id, status)
 
-fun BidStatus.toDto(): BidStatusDto {
-    return BidStatusDto(
-        id = this.id,
-        status = this.status
-    )
-}
-
-fun BidStatusDto.toEntity(): BidStatus {
-    return BidStatus(
-        id = this.id,
-        status = this.status
-    )
-}

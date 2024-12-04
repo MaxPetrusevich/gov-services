@@ -5,74 +5,79 @@ import by.course.govservices.entities.Category
 import by.course.govservices.exceptions.DataFormatException
 import by.course.govservices.exceptions.NotFoundException
 import by.course.govservices.repositories.CategoryRepository
-import by.course.govservices.service.base.BaseService
 import by.course.govservices.util.FilterCriteria
 import by.course.govservices.util.PaginationRequest
+import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
+import org.springframework.data.jpa.domain.Specification
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @Service
 class CategoryService(
     private val categoryRepository: CategoryRepository
-) : BaseService<CategoryDto, Int> {
+) {
 
-    override fun findAll(
+    fun findAll(
         pagination: PaginationRequest,
         filters: List<FilterCriteria>
-    ): Flux<CategoryDto> {
+    ): Page<CategoryDto> {
         val pageRequest = PageRequest.of(pagination.page, pagination.size)
 
-        // Формируем строку с фильтрами
-        val whereClause = buildWhereClause(filters)
+        val specification = buildSpecification(filters)
 
-        // Пагинация добавляется к запросу через параметр `with(pageRequest)`
-        return categoryRepository.findAllWithFilters(whereClause)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Categories not found")))
-    }
-
-    override fun findById(id: Int): Mono<CategoryDto> {
-        return categoryRepository.findById(id)
-            .map { it.toDto() }
-            .switchIfEmpty(Mono.error(NotFoundException("Category with ID $id not found")))
-    }
-
-    override fun save(entity: CategoryDto): Mono<CategoryDto> {
-        return categoryRepository.save(entity.toEntity())
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to save category: ${e.message}") }
-    }
-
-    override fun update(id: Int, entity: CategoryDto): Mono<CategoryDto> {
-        return categoryRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Category with ID $id not found")))
-            .flatMap { categoryRepository.save(entity.toEntity()) }
-            .map { it.toDto() }
-            .onErrorMap { e -> DataFormatException("Failed to update category: ${e.message}") }
-    }
-
-    override fun delete(id: Int): Mono<Void> {
-        return categoryRepository.findById(id)
-            .switchIfEmpty(Mono.error(NotFoundException("Category with ID $id not found")))
-            .flatMap { categoryRepository.delete(it) }
-            .onErrorMap { e -> DataFormatException("Failed to delete category: ${e.message}") }
-    }
-
-    // Метод для построения строки WHERE с фильтрами
-    private fun buildWhereClause(filters: List<FilterCriteria>): String {
-        val whereConditions = filters.mapNotNull { filter ->
-            when (filter.field) {
-                "category" -> "category = '${filter.value}'"
-                else -> null // Пропускаем неизвестные фильтры
-            }
+        val page = categoryRepository.findAll(specification, pageRequest)
+        if (page.isEmpty) {
+            throw NotFoundException("Categories not found")
         }
 
-        return if (whereConditions.isNotEmpty()) {
-            whereConditions.joinToString(" AND ")
-        } else {
-            ""
+        return page.map { it.toDto() }
+    }
+
+
+    fun findById(id: Long): CategoryDto {
+        return categoryRepository.findById(id)
+            .map { it.toDto() }
+            .orElseThrow { NotFoundException("Category with ID $id not found") }
+    }
+
+     fun save(entity: CategoryDto): CategoryDto {
+        return try {
+            categoryRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to save category: ${e.message}")
+        }
+    }
+
+     fun update(id: Long, entity: CategoryDto): CategoryDto {
+        val existingCategory = categoryRepository.findById(id)
+            .orElseThrow { NotFoundException("Category with ID $id not found") }
+
+        return try {
+            categoryRepository.save(entity.toEntity()).toDto()
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to update category: ${e.message}")
+        }
+    }
+
+     fun delete(id: Long) {
+        val existingCategory = categoryRepository.findById(id)
+            .orElseThrow { NotFoundException("Category with ID $id not found") }
+
+        try {
+            categoryRepository.delete(existingCategory)
+        } catch (e: Exception) {
+            throw DataFormatException("Failed to delete category: ${e.message}")
+        }
+    }
+
+    private fun buildSpecification(filters: List<FilterCriteria>): Specification<Category> {
+        return Specification { root, query, cb ->
+            filters.mapNotNull { filter ->
+                when (filter.field) {
+                    "category" -> cb.equal(root.get<String>("category"), filter.value)
+                    else -> null
+                }
+            }.reduce(cb::and)
         }
     }
 }

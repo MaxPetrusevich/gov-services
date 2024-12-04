@@ -1,7 +1,7 @@
 package by.course.govservices.dto
 
 data class UserDto(
-    val id: Int?,
+    val id: Long?,
     val identifyNumber: String,
-    val roleId: Int
+    val roleId: Long
 )
